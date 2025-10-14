@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Auto-fill Location → Google Form</title>
+  <title>تعبئة تلقائية للموقع - نموذج الحكمة</title>
   <style>
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
@@ -11,8 +11,9 @@
       margin: 0;
       padding: 0;
       color: #222;
-      direction: ltr;
+      direction: rtl;
     }
+
     .container {
       max-width: 520px;
       margin: 40px auto 0;
@@ -20,139 +21,205 @@
       border-radius: 14px;
       box-shadow: 0 4px 24px #0001;
       padding: 30px 22px 18px;
-    }
-    h3 {
       text-align: center;
+    }
+
+    h3 {
       margin-top: 0;
-      font-size: 1.22rem;
+      font-size: 1.25rem;
       color: #2267b7;
       font-weight: 600;
     }
+
     #status {
       margin: 14px auto 18px;
-      padding: 10px 18px;
-      background: #f2f7fd;
-      color: #174075;
+      padding: 12px 18px;
+      background: #fff3cd;
+      color: #856404;
       border-radius: 7px;
       font-size: 1rem;
       text-align: center;
-      min-height: 44px;
+      min-height: 54px;
       transition: background 0.3s, color 0.3s;
     }
+
     #status.error {
       background: #fdeaea;
       color: #c91e2c;
     }
+
     #status.success {
       background: #e8f5e9;
       color: #207d32;
     }
+
+    #controls {
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    button {
+      padding: 9px 14px;
+      border-radius: 8px;
+      border: 0;
+      background: #2267b7;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      margin: 4px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #195497;
+    }
+
     iframe {
       width: 100%;
       height: 600px;
       border: 0;
       border-radius: 8px;
       background: #f2f3f5;
+      display: none;
     }
+
     @media (max-width: 650px) {
-      .container { padding: 10px 2px 8px; }
-      iframe { height: 400px; }
+      .container { padding: 12px 8px; }
+      iframe { height: 440px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h3>Location will be auto-filled in your form</h3>
-    <div id="status">Please allow location access when prompted.</div>
-    <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
+    <h3>سيتم تعبئة موقعك تلقائياً في نموذج الحكمة</h3>
+
+    <div id="status">التحقق من صلاحيات تحديد الموقع…</div>
+
+    <div id="controls">
+      <button id="requestBtn">افتح الموقع</button>
+      <button id="retryBtn" style="display:none;">إعادة المحاولة</button>
+    </div>
+
+    <iframe id="myForm" allow="geolocation" title="نموذج Google">Loading…</iframe>
   </div>
+
   <script>
     const FORM_BASE_URL = 'https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url';
     const entryLocation = 'entry.123519381';
     const CONTACT_EMAIL = 'mmm842218@gmail.com';
 
-    function setStatus(msg, type = '') {
-      const s = document.getElementById('status');
-      s.innerText = msg;
-      s.className = type;
+    const statusEl = document.getElementById('status');
+    const controlsEl = document.getElementById('controls');
+    const requestBtn = document.getElementById('requestBtn');
+    const retryBtn = document.getElementById('retryBtn');
+    const iframeEl = document.getElementById('myForm');
+
+    function setStatus(msg, cls = '') {
+      statusEl.innerText = msg;
+      statusEl.className = cls;
     }
 
     function setFormLocation(lat, lon, place) {
       const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
       const value = `${place} | ${mapsLink}`;
-      setStatus('Location detected', 'success');
-      const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}`;
-      document.getElementById('myForm').src = url;
+      setStatus('✅ تم تحديد موقعك بنجاح. جارٍ فتح النموذج...', 'success');
+      iframeEl.src = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}`;
+      iframeEl.style.display = 'block';
+      controlsEl.style.display = 'none';
     }
 
     function reverseGeocodeNominatim(lat, lon, cb) {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=ar&email=${encodeURIComponent(CONTACT_EMAIL)}`;
       fetch(url, { headers: { 'User-Agent': `AutoLocationForm/2.0 (+${CONTACT_EMAIL})` } })
         .then(r => r.ok ? r.json() : Promise.reject())
         .then(data => cb(data?.display_name || ''))
-        .catch(() => cb(''));
+        .catch(err => {
+          console.error('Nominatim error:', err);
+          cb('');
+        });
     }
 
-    function ipGeolocationFallback(cb) {
-      fetch('https://ipapi.co/json/')
-        .then(r => r.json())
-        .then(data => {
-          const parts = [];
-          if (data.city) parts.push(data.city);
-          if (data.region) parts.push(data.region);
-          if (data.country_name) parts.push(data.country_name);
-          cb(parts.join(', '));
-        })
-        .catch(() => cb(''));
+    function handleGeolocationSuccess(pos) {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      setStatus('جارٍ تحديد العنوان...', 'success');
+      reverseGeocodeNominatim(lat, lon, place => {
+        setFormLocation(lat, lon, place || `${lat}, ${lon}`);
+      });
     }
 
-    function showError(msg) {
-      setStatus(msg, 'error');
+    function handleGeolocationError(err) {
+      console.error('Geolocation error:', err);
+      iframeEl.style.display = 'none';
+      controlsEl.style.display = 'block';
+      retryBtn.style.display = 'inline-block';
+      requestBtn.style.display = 'inline-block';
+
+      switch (err.code) {
+        case 1:
+          setStatus('❌ الرجاء تفعيل الموقع والسماح بمشاركته مع المتصفح.', 'error');
+          break;
+        case 2:
+          setStatus('⚠️ تعذر تحديد الموقع حالياً. تأكد من الاتصال بالإنترنت وخدمة GPS.', 'error');
+          break;
+        case 3:
+          setStatus('⏳ انتهت مهلة تحديد الموقع. حاول مرة أخرى.', 'error');
+          break;
+        default:
+          setStatus('حدث خطأ أثناء تحديد الموقع. يرجى إعادة المحاولة.', 'error');
+      }
     }
 
-    function init() {
-      setStatus('Detecting your location…');
+    function requestGeolocationPrompt() {
+      setStatus('⏳ جارٍ طلب إذن الموقع من المتصفح...');
+      controlsEl.style.display = 'none';
+      navigator.geolocation.getCurrentPosition(handleGeolocationSuccess, handleGeolocationError, {
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 0
+      });
+    }
 
+    function checkPermissionThenAct() {
       if (!window.isSecureContext && !location.hostname.includes('localhost')) {
-        showError('This page must be loaded over HTTPS for location access.');
+        setStatus('⚠️ يجب فتح الصفحة عبر HTTPS لتفعيل الموقع.', 'error');
         return;
       }
 
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          function(pos) {
-            const lat = pos.coords.latitude;
-            const lon = pos.coords.longitude;
-            setStatus('Getting address…');
-            reverseGeocodeNominatim(lat, lon, function(place) {
-              if (place) {
-                setFormLocation(lat, lon, place);
-              } else {
-                showError('Unable to get address. Using fallback…');
-                ipGeolocationFallback(function(ipPlace) {
-                  setFormLocation(lat, lon, ipPlace || 'Location unavailable');
-                });
-              }
-            });
-          },
-          function(error) {
-            console.error('Geolocation error:', error);
-            showError(`Error: ${error.message}. Using fallback…`);
-            ipGeolocationFallback(function(ipPlace) {
-              setFormLocation(0, 0, ipPlace || 'Location not shared');
-            });
-          },
-          { timeout: 30000, enableHighAccuracy: true, maximumAge: 0 }
-        );
+      if (!navigator.geolocation) {
+        setStatus('❌ المتصفح لا يدعم خدمة تحديد الموقع.', 'error');
+        return;
+      }
+
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' })
+          .then(result => {
+            if (result.state === 'granted') {
+              setStatus('✅ تم السماح بالموقع مسبقاً. جارٍ الحصول عليه...');
+              requestGeolocationPrompt();
+            } else {
+              setStatus('📍 الرجاء السماح بالموقع بالضغط على "افتح الموقع".', 'error');
+              controlsEl.style.display = 'block';
+            }
+            result.onchange = () => checkPermissionThenAct();
+          })
+          .catch(() => {
+            setStatus('اضغط "افتح الموقع" لطلب الإذن.', 'error');
+            controlsEl.style.display = 'block';
+          });
       } else {
-        showError('Geolocation not supported. Using fallback…');
-        ipGeolocationFallback(function(ipPlace) {
-          setFormLocation(0, 0, ipPlace || 'Not supported');
-        });
+        setStatus('اضغط "افتح الموقع" لطلب الإذن.', 'error');
+        controlsEl.style.display = 'block';
       }
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    requestBtn.addEventListener('click', requestGeolocationPrompt);
+    retryBtn.addEventListener('click', () => {
+      setStatus('🔄 إعادة المحاولة في تحديد الموقع...');
+      requestGeolocationPrompt();
+    });
+
+    document.addEventListener('DOMContentLoaded', checkPermissionThenAct);
   </script>
 </body>
 </html>
