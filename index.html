@@ -170,7 +170,7 @@
     };
 
     // ============================
-    // 🔧 المتغيرات العامة
+    // 🔧 إعدادات عامة
     // ============================
     const FORM_BASE_URL = 'https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url';
     const entryLocation = 'entry.123519381';
@@ -190,18 +190,21 @@
       statusEl.className = cls;
     }
 
+    // ✅ النسخة المعدّلة — عنوان بالإنجليزية + منع المسودة
     function setFormLocation(lat, lon, place) {
       const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
       const value = `${place} | ${mapsLink}`;
       setStatus(text.success_coords, 'success');
-      iframeEl.src = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}`;
+
+      const randomKey = Date.now(); // يضمن نموذج جديد كل مرة
+      const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}&pli=1&_new=${randomKey}`;
+
+      iframeEl.src = url;
       iframeEl.style.display = 'block';
       controlsEl.style.display = 'none';
     }
 
-    // ============================
-    // 🌐 هنا التعديل المطلوب
-    // ============================
+    // 🌐 عنوان بالإنجليزية فقط دائمًا
     function reverseGeocodeNominatim(lat, lon, cb) {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
       fetch(url, { headers: { 'User-Agent': `AutoLocationForm/2.0 (+${CONTACT_EMAIL})` } })
