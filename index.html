@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>تعبئة تلقائية للموقع - نموذج الحكمة</title>
+  <title>Auto-fill Location | تعبئة الموقع تلقائيًا</title>
   <style>
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
@@ -91,19 +91,87 @@
 </head>
 <body>
   <div class="container">
-    <h3>سيتم تعبئة موقعك تلقائياً في نموذج الحكمة</h3>
+    <h3 id="title">تعبئة الموقع تلقائيًا في النموذج</h3>
 
-    <div id="status">التحقق من صلاحيات تحديد الموقع…</div>
+    <div id="status">جارٍ التحقق من صلاحيات تحديد الموقع…</div>
 
     <div id="controls">
       <button id="requestBtn">افتح الموقع</button>
       <button id="retryBtn" style="display:none;">إعادة المحاولة</button>
     </div>
 
-    <iframe id="myForm" allow="geolocation" title="نموذج Google">Loading…</iframe>
+    <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
   </div>
 
   <script>
+    // ============================
+    // 🌍 تحديد اللغة تلقائيًا
+    // ============================
+    const isArabic = navigator.language.startsWith('ar');
+    document.documentElement.lang = isArabic ? 'ar' : 'en';
+    document.body.style.direction = isArabic ? 'rtl' : 'ltr';
+
+    const text = {
+      title: isArabic
+        ? 'سيتم تعبئة موقعك تلقائيًا في نموذج الحكمة'
+        : 'Your location will be auto-filled into the form',
+
+      checking: isArabic
+        ? 'جارٍ التحقق من صلاحيات الموقع…'
+        : 'Checking location permissions…',
+
+      allow_location: isArabic
+        ? '📍 الرجاء السماح للموقع بالضغط على "افتح الموقع".'
+        : '📍 Please enable location by clicking "Allow Location".',
+
+      success_coords: isArabic
+        ? '✅ تم تحديد موقعك بنجاح. جارٍ فتح النموذج...'
+        : '✅ Location detected successfully. Loading form...',
+
+      getting_address: isArabic
+        ? 'جارٍ تحديد العنوان...'
+        : 'Fetching address...',
+
+      denied: isArabic
+        ? '❌ الرجاء تفعيل الموقع والسماح بمشاركته مع المتصفح.'
+        : '❌ Please enable and allow location access.',
+
+      unavailable: isArabic
+        ? '⚠️ تعذر تحديد الموقع. تحقق من الاتصال أو خدمة GPS.'
+        : '⚠️ Location unavailable. Check your GPS or connection.',
+
+      timeout: isArabic
+        ? '⏳ انتهت مهلة تحديد الموقع. حاول مرة أخرى.'
+        : '⏳ Location request timed out. Try again.',
+
+      generic_error: isArabic
+        ? 'حدث خطأ أثناء تحديد الموقع. يرجى إعادة المحاولة.'
+        : 'An error occurred while getting your location. Please retry.',
+
+      https_required: isArabic
+        ? '⚠️ يجب فتح الصفحة عبر HTTPS لتفعيل الموقع.'
+        : '⚠️ Page must be loaded over HTTPS for location to work.',
+
+      unsupported: isArabic
+        ? '❌ المتصفح لا يدعم تحديد الموقع.'
+        : '❌ Geolocation is not supported by this browser.',
+
+      granted: isArabic
+        ? '✅ تم السماح بالموقع مسبقًا. جارٍ تحديده...'
+        : '✅ Location already allowed. Getting position...',
+
+      retrying: isArabic
+        ? '🔄 إعادة المحاولة في تحديد الموقع...'
+        : '🔄 Retrying to get location...',
+
+      request_prompt: isArabic
+        ? '⏳ جارٍ طلب إذن الموقع من المتصفح...'
+        : '⏳ Requesting location permission from browser...'
+    };
+
+    // ============================
+    // 🔧 المتغيرات العامة
+    // ============================
     const FORM_BASE_URL = 'https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url';
     const entryLocation = 'entry.123519381';
     const CONTACT_EMAIL = 'mmm842218@gmail.com';
@@ -113,6 +181,9 @@
     const requestBtn = document.getElementById('requestBtn');
     const retryBtn = document.getElementById('retryBtn');
     const iframeEl = document.getElementById('myForm');
+    const titleEl = document.getElementById('title');
+
+    titleEl.textContent = text.title;
 
     function setStatus(msg, cls = '') {
       statusEl.innerText = msg;
@@ -122,14 +193,17 @@
     function setFormLocation(lat, lon, place) {
       const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
       const value = `${place} | ${mapsLink}`;
-      setStatus('✅ تم تحديد موقعك بنجاح. جارٍ فتح النموذج...', 'success');
+      setStatus(text.success_coords, 'success');
       iframeEl.src = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}`;
       iframeEl.style.display = 'block';
       controlsEl.style.display = 'none';
     }
 
+    // ============================
+    // 🌐 هنا التعديل المطلوب
+    // ============================
     function reverseGeocodeNominatim(lat, lon, cb) {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=ar&email=${encodeURIComponent(CONTACT_EMAIL)}`;
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
       fetch(url, { headers: { 'User-Agent': `AutoLocationForm/2.0 (+${CONTACT_EMAIL})` } })
         .then(r => r.ok ? r.json() : Promise.reject())
         .then(data => cb(data?.display_name || ''))
@@ -142,7 +216,7 @@
     function handleGeolocationSuccess(pos) {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
-      setStatus('جارٍ تحديد العنوان...', 'success');
+      setStatus(text.getting_address, 'success');
       reverseGeocodeNominatim(lat, lon, place => {
         setFormLocation(lat, lon, place || `${lat}, ${lon}`);
       });
@@ -157,21 +231,21 @@
 
       switch (err.code) {
         case 1:
-          setStatus('❌ الرجاء تفعيل الموقع والسماح بمشاركته مع المتصفح.', 'error');
+          setStatus(text.denied, 'error');
           break;
         case 2:
-          setStatus('⚠️ تعذر تحديد الموقع حالياً. تأكد من الاتصال بالإنترنت وخدمة GPS.', 'error');
+          setStatus(text.unavailable, 'error');
           break;
         case 3:
-          setStatus('⏳ انتهت مهلة تحديد الموقع. حاول مرة أخرى.', 'error');
+          setStatus(text.timeout, 'error');
           break;
         default:
-          setStatus('حدث خطأ أثناء تحديد الموقع. يرجى إعادة المحاولة.', 'error');
+          setStatus(text.generic_error, 'error');
       }
     }
 
     function requestGeolocationPrompt() {
-      setStatus('⏳ جارٍ طلب إذن الموقع من المتصفح...');
+      setStatus(text.request_prompt);
       controlsEl.style.display = 'none';
       navigator.geolocation.getCurrentPosition(handleGeolocationSuccess, handleGeolocationError, {
         enableHighAccuracy: true,
@@ -182,12 +256,12 @@
 
     function checkPermissionThenAct() {
       if (!window.isSecureContext && !location.hostname.includes('localhost')) {
-        setStatus('⚠️ يجب فتح الصفحة عبر HTTPS لتفعيل الموقع.', 'error');
+        setStatus(text.https_required, 'error');
         return;
       }
 
       if (!navigator.geolocation) {
-        setStatus('❌ المتصفح لا يدعم خدمة تحديد الموقع.', 'error');
+        setStatus(text.unsupported, 'error');
         return;
       }
 
@@ -195,27 +269,27 @@
         navigator.permissions.query({ name: 'geolocation' })
           .then(result => {
             if (result.state === 'granted') {
-              setStatus('✅ تم السماح بالموقع مسبقاً. جارٍ الحصول عليه...');
+              setStatus(text.granted);
               requestGeolocationPrompt();
             } else {
-              setStatus('📍 الرجاء السماح بالموقع بالضغط على "افتح الموقع".', 'error');
+              setStatus(text.allow_location, 'error');
               controlsEl.style.display = 'block';
             }
             result.onchange = () => checkPermissionThenAct();
           })
           .catch(() => {
-            setStatus('اضغط "افتح الموقع" لطلب الإذن.', 'error');
+            setStatus(text.allow_location, 'error');
             controlsEl.style.display = 'block';
           });
       } else {
-        setStatus('اضغط "افتح الموقع" لطلب الإذن.', 'error');
+        setStatus(text.allow_location, 'error');
         controlsEl.style.display = 'block';
       }
     }
 
     requestBtn.addEventListener('click', requestGeolocationPrompt);
     retryBtn.addEventListener('click', () => {
-      setStatus('🔄 إعادة المحاولة في تحديد الموقع...');
+      setStatus(text.retrying);
       requestGeolocationPrompt();
     });
 
