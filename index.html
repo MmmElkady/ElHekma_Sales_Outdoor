@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Auto-fill Location | تعبئة الموقع تلقائيًا</title>
+  <title>Auto-fill Location | El Hekma Feedback</title>
   <style>
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
@@ -11,12 +11,12 @@
       margin: 0;
       padding: 0;
       color: #222;
-      direction: rtl;
+      direction: ltr;
     }
 
     .container {
       max-width: 520px;
-      margin: 40px auto 0;
+      margin: 40px auto;
       background: #fff;
       border-radius: 14px;
       box-shadow: 0 4px 24px #0001;
@@ -38,7 +38,6 @@
       color: #856404;
       border-radius: 7px;
       font-size: 1rem;
-      text-align: center;
       min-height: 54px;
       transition: background 0.3s, color 0.3s;
     }
@@ -91,87 +90,19 @@
 </head>
 <body>
   <div class="container">
-    <h3 id="title">تعبئة الموقع تلقائيًا في النموذج</h3>
+    <h3 id="title">Your location will be auto-filled in the form</h3>
 
-    <div id="status">جارٍ التحقق من صلاحيات تحديد الموقع…</div>
+    <div id="status">Checking location permissions…</div>
 
     <div id="controls">
-      <button id="requestBtn">افتح الموقع</button>
-      <button id="retryBtn" style="display:none;">إعادة المحاولة</button>
+      <button id="requestBtn">Allow Location</button>
+      <button id="retryBtn" style="display:none;">Retry</button>
     </div>
 
     <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
   </div>
 
   <script>
-    // ============================
-    // 🌍 تحديد اللغة تلقائيًا
-    // ============================
-    const isArabic = navigator.language.startsWith('ar');
-    document.documentElement.lang = isArabic ? 'ar' : 'en';
-    document.body.style.direction = isArabic ? 'rtl' : 'ltr';
-
-    const text = {
-      title: isArabic
-        ? 'سيتم تعبئة موقعك تلقائيًا في نموذج الحكمة'
-        : 'Your location will be auto-filled into the form',
-
-      checking: isArabic
-        ? 'جارٍ التحقق من صلاحيات الموقع…'
-        : 'Checking location permissions…',
-
-      allow_location: isArabic
-        ? '📍 الرجاء السماح للموقع بالضغط على "افتح الموقع".'
-        : '📍 Please enable location by clicking "Allow Location".',
-
-      success_coords: isArabic
-        ? '✅ تم تحديد موقعك بنجاح. جارٍ فتح النموذج...'
-        : '✅ Location detected successfully. Loading form...',
-
-      getting_address: isArabic
-        ? 'جارٍ تحديد العنوان...'
-        : 'Fetching address...',
-
-      denied: isArabic
-        ? '❌ الرجاء تفعيل الموقع والسماح بمشاركته مع المتصفح.'
-        : '❌ Please enable and allow location access.',
-
-      unavailable: isArabic
-        ? '⚠️ تعذر تحديد الموقع. تحقق من الاتصال أو خدمة GPS.'
-        : '⚠️ Location unavailable. Check your GPS or connection.',
-
-      timeout: isArabic
-        ? '⏳ انتهت مهلة تحديد الموقع. حاول مرة أخرى.'
-        : '⏳ Location request timed out. Try again.',
-
-      generic_error: isArabic
-        ? 'حدث خطأ أثناء تحديد الموقع. يرجى إعادة المحاولة.'
-        : 'An error occurred while getting your location. Please retry.',
-
-      https_required: isArabic
-        ? '⚠️ يجب فتح الصفحة عبر HTTPS لتفعيل الموقع.'
-        : '⚠️ Page must be loaded over HTTPS for location to work.',
-
-      unsupported: isArabic
-        ? '❌ المتصفح لا يدعم تحديد الموقع.'
-        : '❌ Geolocation is not supported by this browser.',
-
-      granted: isArabic
-        ? '✅ تم السماح بالموقع مسبقًا. جارٍ تحديده...'
-        : '✅ Location already allowed. Getting position...',
-
-      retrying: isArabic
-        ? '🔄 إعادة المحاولة في تحديد الموقع...'
-        : '🔄 Retrying to get location...',
-
-      request_prompt: isArabic
-        ? '⏳ جارٍ طلب إذن الموقع من المتصفح...'
-        : '⏳ Requesting location permission from browser...'
-    };
-
-    // ============================
-    // 🔧 إعدادات عامة
-    // ============================
     const FORM_BASE_URL = 'https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url';
     const entryLocation = 'entry.123519381';
     const CONTACT_EMAIL = 'mmm842218@gmail.com';
@@ -181,90 +112,118 @@
     const requestBtn = document.getElementById('requestBtn');
     const retryBtn = document.getElementById('retryBtn');
     const iframeEl = document.getElementById('myForm');
-    const titleEl = document.getElementById('title');
 
-    titleEl.textContent = text.title;
+    let lastLat = null;
+    let lastLon = null;
 
     function setStatus(msg, cls = '') {
       statusEl.innerText = msg;
       statusEl.className = cls;
     }
 
-    // ✅ النسخة المعدّلة — عنوان بالإنجليزية + منع المسودة
+    // 🧹 تنظيف النص العربي من العنوان
+    function cleanAddress(place) {
+      place = place.replace(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+/g, '').trim();
+      place = place.replace(/,+/g, ',').replace(/\s+,/g, ',').replace(/,\s+/g, ', ').trim();
+      return place;
+    }
+
+    // 🧭 جلب العنوان بالإنجليزية فقط
+    function reverseGeocodeNominatim(lat, lon, cb) {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
+      fetch(url, { headers: { 'User-Agent': `AutoLocationForm/2.0 (+${CONTACT_EMAIL})` } })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          let place = data?.display_name || '';
+          cb(cleanAddress(place));
+        })
+        .catch(() => cb(''));
+    }
+
+    // ✅ تحديث النموذج عند تحديد الموقع
     function setFormLocation(lat, lon, place) {
+      if (!lat || !lon || lat === 0 || lon === 0) {
+        setStatus('⚠️ Location invalid, please enable GPS and try again.', 'error');
+        iframeEl.style.display = 'none';
+        controlsEl.style.display = 'block';
+        retryBtn.style.display = 'inline-block';
+        return;
+      }
+
+      // تجنب إعادة التحديث إذا لم يتغير الموقع
+      if (lastLat && lastLon && Math.abs(lat - lastLat) < 0.0001 && Math.abs(lon - lastLon) < 0.0001) {
+        return;
+      }
+
+      lastLat = lat;
+      lastLon = lon;
+
       const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
       const value = `${place} | ${mapsLink}`;
-      setStatus(text.success_coords, 'success');
+      setStatus('✅ Location detected successfully. Loading form...', 'success');
 
-      const randomKey = Date.now(); // يضمن نموذج جديد كل مرة
-      const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}&pli=1&_new=${randomKey}`;
+      // 🧠 إنشاء رابط جديد 100% لتجنب رسالة Continue your draft
+      const uniqueParam = `nocache=${Date.now()}_${Math.random().toString(36).substring(2,8)}`;
+      const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}&pli=1&fbzx=${uniqueParam}&${uniqueParam}`;
 
       iframeEl.src = url;
       iframeEl.style.display = 'block';
       controlsEl.style.display = 'none';
     }
 
-    // 🌐 عنوان بالإنجليزية فقط دائمًا
-    function reverseGeocodeNominatim(lat, lon, cb) {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
-      fetch(url, { headers: { 'User-Agent': `AutoLocationForm/2.0 (+${CONTACT_EMAIL})` } })
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then(data => cb(data?.display_name || ''))
-        .catch(err => {
-          console.error('Nominatim error:', err);
-          cb('');
-        });
-    }
-
     function handleGeolocationSuccess(pos) {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
-      setStatus(text.getting_address, 'success');
+      setStatus('Getting address…');
       reverseGeocodeNominatim(lat, lon, place => {
-        setFormLocation(lat, lon, place || `${lat}, ${lon}`);
+        if (place) setFormLocation(lat, lon, place);
+        else setStatus('⚠️ Unable to get address. Please retry.', 'error');
       });
     }
 
     function handleGeolocationError(err) {
       console.error('Geolocation error:', err);
+      setStatus('❌ Please enable location and allow browser access.', 'error');
       iframeEl.style.display = 'none';
       controlsEl.style.display = 'block';
       retryBtn.style.display = 'inline-block';
-      requestBtn.style.display = 'inline-block';
+    }
 
-      switch (err.code) {
-        case 1:
-          setStatus(text.denied, 'error');
-          break;
-        case 2:
-          setStatus(text.unavailable, 'error');
-          break;
-        case 3:
-          setStatus(text.timeout, 'error');
-          break;
-        default:
-          setStatus(text.generic_error, 'error');
+    // 🛰️ تفعيل الموقع المستمر (تحديث تلقائي)
+    function startWatchingLocation() {
+      try {
+        navigator.geolocation.watchPosition(handleGeolocationSuccess, handleGeolocationError, {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 20000
+        });
+        setStatus('📡 Watching location for updates…');
+      } catch (e) {
+        console.error('watchPosition not supported:', e);
       }
     }
 
     function requestGeolocationPrompt() {
-      setStatus(text.request_prompt);
+      setStatus('⏳ Requesting location access...');
       controlsEl.style.display = 'none';
-      navigator.geolocation.getCurrentPosition(handleGeolocationSuccess, handleGeolocationError, {
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 0
-      });
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          handleGeolocationSuccess(pos);
+          startWatchingLocation(); // ✅ يبدأ المراقبة بعد أول نجاح
+        },
+        handleGeolocationError,
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
     }
 
     function checkPermissionThenAct() {
       if (!window.isSecureContext && !location.hostname.includes('localhost')) {
-        setStatus(text.https_required, 'error');
+        setStatus('⚠️ Page must be loaded via HTTPS for location to work.', 'error');
         return;
       }
 
       if (!navigator.geolocation) {
-        setStatus(text.unsupported, 'error');
+        setStatus('❌ Geolocation not supported in this browser.', 'error');
         return;
       }
 
@@ -272,27 +231,27 @@
         navigator.permissions.query({ name: 'geolocation' })
           .then(result => {
             if (result.state === 'granted') {
-              setStatus(text.granted);
+              setStatus('✅ Location access already granted. Getting position…');
               requestGeolocationPrompt();
             } else {
-              setStatus(text.allow_location, 'error');
+              setStatus('📍 Please enable location and click “Allow Location”.', 'error');
               controlsEl.style.display = 'block';
             }
             result.onchange = () => checkPermissionThenAct();
           })
           .catch(() => {
-            setStatus(text.allow_location, 'error');
+            setStatus('📍 Please enable location manually.', 'error');
             controlsEl.style.display = 'block';
           });
       } else {
-        setStatus(text.allow_location, 'error');
+        setStatus('📍 Please enable location manually.', 'error');
         controlsEl.style.display = 'block';
       }
     }
 
     requestBtn.addEventListener('click', requestGeolocationPrompt);
     retryBtn.addEventListener('click', () => {
-      setStatus(text.retrying);
+      setStatus('🔄 Retrying to get location…');
       requestGeolocationPrompt();
     });
 
