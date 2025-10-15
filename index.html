@@ -107,8 +107,6 @@
     const entryLocation = 'entry.123519381';
     const CONTACT_EMAIL = 'mmm842218@gmail.com';
 
-    const UPDATE_INTERVAL = 1800000; // ⏰ كل 30 دقيقة (بالمللي ثانية)
-
     const statusEl = document.getElementById('status');
     const controlsEl = document.getElementById('controls');
     const requestBtn = document.getElementById('requestBtn');
@@ -123,40 +121,48 @@
       statusEl.className = cls;
     }
 
-    // 🧹 إزالة النص العربي
+    // 🧹 تنظيف النص العربي من العنوان
     function cleanAddress(place) {
       place = place.replace(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+/g, '').trim();
       place = place.replace(/,+/g, ',').replace(/\s+,/g, ',').replace(/,\s+/g, ', ').trim();
       return place;
     }
 
-    // 🧭 العنوان بالإنجليزية فقط
+    // 🧭 جلب العنوان بالإنجليزية فقط
     function reverseGeocodeNominatim(lat, lon, cb) {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
       fetch(url, { headers: { 'User-Agent': `AutoLocationForm/2.0 (+${CONTACT_EMAIL})` } })
         .then(r => r.ok ? r.json() : Promise.reject())
-        .then(data => cb(cleanAddress(data?.display_name || '')))
+        .then(data => {
+          let place = data?.display_name || '';
+          cb(cleanAddress(place));
+        })
         .catch(() => cb(''));
     }
 
-    // ✅ تحميل النموذج بعنوان جديد دائمًا
+    // ✅ تحديث النموذج عند تحديد الموقع
     function setFormLocation(lat, lon, place) {
       if (!lat || !lon || lat === 0 || lon === 0) {
-        setStatus('⚠️ Location invalid, please enable GPS.', 'error');
+        setStatus('⚠️ Location invalid, please enable GPS and try again.', 'error');
         iframeEl.style.display = 'none';
         controlsEl.style.display = 'block';
         retryBtn.style.display = 'inline-block';
         return;
       }
 
-      if (lastLat && lastLon && Math.abs(lat - lastLat) < 0.0001 && Math.abs(lon - lastLon) < 0.0001) return;
+      // تجنب إعادة التحديث إذا لم يتغير الموقع
+      if (lastLat && lastLon && Math.abs(lat - lastLat) < 0.0001 && Math.abs(lon - lastLon) < 0.0001) {
+        return;
+      }
 
-      lastLat = lat; lastLon = lon;
+      lastLat = lat;
+      lastLon = lon;
 
       const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
       const value = `${place} | ${mapsLink}`;
       setStatus('✅ Location detected successfully. Loading form...', 'success');
 
+      // 🧠 إنشاء رابط جديد 100% لتجنب رسالة Continue your draft
       const uniqueParam = `nocache=${Date.now()}_${Math.random().toString(36).substring(2,8)}`;
       const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}&pli=1&fbzx=${uniqueParam}&${uniqueParam}`;
 
@@ -183,21 +189,27 @@
       retryBtn.style.display = 'inline-block';
     }
 
-    // 🔁 تحديث الموقع كل فترة
-    function startPeriodicLocationUpdates() {
-      setInterval(() => {
-        console.log('⏱ Updating location...');
-        requestGeolocationPrompt();
-      }, UPDATE_INTERVAL);
-      setStatus(`📡 Location will auto-refresh every ${UPDATE_INTERVAL / 60000} minutes.`);
+    // 🛰️ تفعيل الموقع المستمر (تحديث تلقائي)
+    function startWatchingLocation() {
+      try {
+        navigator.geolocation.watchPosition(handleGeolocationSuccess, handleGeolocationError, {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 20000
+        });
+        setStatus('📡 Watching location for updates…');
+      } catch (e) {
+        console.error('watchPosition not supported:', e);
+      }
     }
 
     function requestGeolocationPrompt() {
-      setStatus('⏳ Getting your location...');
+      setStatus('⏳ Requesting location access...');
       controlsEl.style.display = 'none';
       navigator.geolocation.getCurrentPosition(
         pos => {
           handleGeolocationSuccess(pos);
+          startWatchingLocation(); // ✅ يبدأ المراقبة بعد أول نجاح
         },
         handleGeolocationError,
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -219,9 +231,8 @@
         navigator.permissions.query({ name: 'geolocation' })
           .then(result => {
             if (result.state === 'granted') {
-              setStatus('✅ Location access granted. Getting position…');
+              setStatus('✅ Location access already granted. Getting position…');
               requestGeolocationPrompt();
-              startPeriodicLocationUpdates();
             } else {
               setStatus('📍 Please enable location and click “Allow Location”.', 'error');
               controlsEl.style.display = 'block';
@@ -238,11 +249,7 @@
       }
     }
 
-    requestBtn.addEventListener('click', () => {
-      requestGeolocationPrompt();
-      startPeriodicLocationUpdates();
-    });
-
+    requestBtn.addEventListener('click', requestGeolocationPrompt);
     retryBtn.addEventListener('click', () => {
       setStatus('🔄 Retrying to get location…');
       requestGeolocationPrompt();
