@@ -1,144 +1,290 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="referrer" content="no-referrer">
-  <title>Auto Location System</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>El Hekma | Smart Location Feedback</title>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f5f5f5;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f6f8fa;
+      margin: 0;
+      padding: 0;
+      color: #222;
+      direction: ltr;
     }
-    .card {
+
+    .container {
+      max-width: 520px;
+      margin: 40px auto;
       background: #fff;
-      padding: 25px;
-      border-radius: 16px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-      width: 90%;
-      max-width: 450px;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px #0001;
+      padding: 30px 22px 18px;
       text-align: center;
     }
-    button {
-      background: #0078ff;
-      color: white;
-      border: none;
+
+    h3 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      color: #2267b7;
+      font-weight: 600;
+    }
+
+    #status {
+      margin: 14px auto 18px;
       padding: 12px 18px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 10px;
-      font-size: 16px;
+      background: #fff3cd;
+      color: #856404;
+      border-radius: 7px;
+      font-size: 1rem;
+      min-height: 54px;
+      transition: background 0.3s, color 0.3s;
     }
-    button:disabled {
-      background: #ccc;
+
+    #status.error {
+      background: #fdeaea;
+      color: #c91e2c;
     }
-    .spinner {
+
+    #status.success {
+      background: #e8f5e9;
+      color: #207d32;
+    }
+
+    #controls {
+      margin-bottom: 16px;
       display: none;
-      margin-top: 10px;
+    }
+
+    button {
+      padding: 9px 14px;
+      border-radius: 8px;
+      border: 0;
+      background: #2267b7;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      margin: 4px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #195497;
+    }
+
+    iframe {
+      width: 100%;
+      height: 600px;
+      border: 0;
+      border-radius: 8px;
+      background: #f2f3f5;
+      display: none;
+    }
+
+    @media (max-width: 650px) {
+      .container { padding: 12px 8px; }
+      iframe { height: 440px; }
     }
   </style>
 </head>
 <body>
+  <div class="container">
+    <h3>Your location will be auto-filled in the form</h3>
 
-  <div class="card">
-    <h2>Get Your Location</h2>
-    <p id="status">Click below to detect your current location.</p>
-    <button id="getLocationBtn">Get Location</button>
-    <div class="spinner" id="spinner">⏳ Getting location...</div>
-    <textarea id="result" rows="3" style="width:100%;margin-top:10px;"></textarea>
+    <div id="status">Checking location permissions…</div>
+
+    <div id="controls">
+      <button id="requestBtn">Allow Location</button>
+      <button id="retryBtn" style="display:none;">Retry</button>
+    </div>
+
+    <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
   </div>
 
   <script>
-    const btn = document.getElementById('getLocationBtn');
-    const statusEl = document.getElementById('status');
-    const resultEl = document.getElementById('result');
-    const spinner = document.getElementById('spinner');
-    const CACHE_KEY = "last_location";
-    const CACHE_TIME = 5 * 60 * 1000; // 5 minutes
+    const FORM_BASE_URL =
+      "https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url";
+    const entryLocation = "entry.123519381";
+    const CONTACT_EMAIL = "mmm842218@gmail.com";
+    const CACHE_DURATION = 5 * 60 * 1000; // 🕒 5 دقائق فقط
 
-    btn.addEventListener('click', () => {
-      spinner.style.display = 'block';
-      statusEl.textContent = "Requesting location...";
-      btn.disabled = true;
-      getLocation();
-    });
+    const statusEl = document.getElementById("status");
+    const controlsEl = document.getElementById("controls");
+    const requestBtn = document.getElementById("requestBtn");
+    const retryBtn = document.getElementById("retryBtn");
+    const iframeEl = document.getElementById("myForm");
 
-    function getLocation() {
-      const cache = localStorage.getItem(CACHE_KEY);
-      if (cache) {
-        const data = JSON.parse(cache);
-        if (Date.now() - data.timestamp < CACHE_TIME) {
-          showResult(data.text);
-          return;
-        }
-      }
-
-      if (!navigator.geolocation) {
-        showError("Geolocation not supported in this browser.");
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(success, () => {
-        showError("Please enable location and try again.");
-      }, { timeout: 15000 });
+    function setStatus(msg, cls = "") {
+      statusEl.innerText = msg;
+      statusEl.className = cls;
     }
 
-    async function success(pos) {
-      const lat = pos.coords.latitude.toFixed(6);
-      const lon = pos.coords.longitude.toFixed(6);
-      if (lat == 0 && lon == 0) return showError("Invalid coordinates.");
-
-      const locationText = await getAddress(lat, lon);
-      if (!locationText) return showError("Unable to fetch address.");
-
-      const finalText = `${locationText} | https://www.google.com/maps?q=${lat},${lon}`;
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ text: finalText, timestamp: Date.now() }));
-      showResult(finalText);
+    function cleanAddress(place) {
+      place = place
+        .replace(
+          /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+/g,
+          ""
+        )
+        .trim();
+      place = place
+        .replace(/,+/g, ",")
+        .replace(/\s+,/g, ",")
+        .replace(/,\s+/g, ", ")
+        .trim();
+      return place;
     }
 
-    async function getAddress(lat, lon) {
+    // 🧭 Reverse Geocoding API
+    async function reverseGeocodeNominatim(lat, lon) {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(
+        CONTACT_EMAIL
+      )}`;
       try {
-        // 1️⃣ BigDataCloud API (Fastest)
-        const bdc = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
-        const bdcData = await bdc.json();
-        if (bdcData && bdcData.city) {
-          return cleanAddress(`${bdcData.locality || bdcData.city}, ${bdcData.principalSubdivision}, ${bdcData.countryName}`);
-        }
-      } catch (e) {
-        console.warn("BigDataCloud failed, trying Nominatim...");
-      }
-
-      try {
-        // 2️⃣ Fallback: Nominatim API
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en`);
-        const data = await res.json();
-        return cleanAddress(data.display_name || "");
+        const r = await fetch(url, {
+          headers: {
+            "User-Agent": `ElHekmaFeedback/2.0 (+${CONTACT_EMAIL})`,
+          },
+        });
+        if (!r.ok) throw new Error("Network");
+        const data = await r.json();
+        return cleanAddress(data?.display_name || "");
       } catch {
         return "";
       }
     }
 
-    function cleanAddress(str) {
-      return str.replace(/،|[^\x00-\x7F]+/g, "").trim();
+    function isValidCoords(lat, lon) {
+      return (
+        lat &&
+        lon &&
+        !isNaN(lat) &&
+        !isNaN(lon) &&
+        lat !== 0 &&
+        lon !== 0 &&
+        lat <= 90 &&
+        lon <= 180
+      );
     }
 
-    function showResult(text) {
-      spinner.style.display = 'none';
-      statusEl.textContent = "✅ Location detected successfully!";
-      resultEl.value = text;
-      btn.disabled = false;
+    function saveCache(lat, lon, address) {
+      const cache = { lat, lon, address, ts: Date.now() };
+      localStorage.setItem("locationCache", JSON.stringify(cache));
     }
 
-    function showError(msg) {
-      spinner.style.display = 'none';
-      statusEl.textContent = "❌ " + msg;
-      btn.disabled = false;
+    function loadCache() {
+      try {
+        const cache = JSON.parse(localStorage.getItem("locationCache"));
+        if (!cache) return null;
+        if (Date.now() - cache.ts > CACHE_DURATION) return null;
+        return cache;
+      } catch {
+        return null;
+      }
     }
+
+    function setForm(lat, lon, place) {
+      if (!isValidCoords(lat, lon)) {
+        setStatus("⚠️ Invalid location. Please enable GPS.", "error");
+        iframeEl.style.display = "none";
+        controlsEl.style.display = "block";
+        retryBtn.style.display = "inline-block";
+        return;
+      }
+
+      const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
+      const value = `${place} | ${mapsLink}`;
+      const unique = `nocache=${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 8)}`;
+      const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(
+        value
+      )}&${unique}`;
+
+      setStatus("✅ Location detected successfully!", "success");
+      iframeEl.src = url;
+      iframeEl.style.display = "block";
+      controlsEl.style.display = "none";
+    }
+
+    async function getAndSetLocation(force = false) {
+      setStatus("📍 Getting your location…");
+      controlsEl.style.display = "none";
+
+      const cache = !force ? loadCache() : null;
+      if (cache) {
+        console.log("✅ Loaded from cache");
+        setForm(cache.lat, cache.lon, cache.address);
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        setStatus("❌ Geolocation not supported in this browser.", "error");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          if (!isValidCoords(lat, lon)) {
+            setStatus("⚠️ Invalid location coordinates.", "error");
+            return;
+          }
+          setStatus("⏳ Getting address…");
+          const address = await reverseGeocodeNominatim(lat, lon);
+          if (address) {
+            saveCache(lat, lon, address);
+            setForm(lat, lon, address);
+          } else {
+            setStatus("⚠️ Unable to retrieve address. Retry later.", "error");
+          }
+        },
+        (err) => {
+          console.warn("❌ Location error:", err);
+          setStatus("Please enable location access.", "error");
+          controlsEl.style.display = "block";
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    function init() {
+      if (!window.isSecureContext && !location.hostname.includes("localhost")) {
+        setStatus(
+          "⚠️ Page must be loaded via HTTPS for location to work.",
+          "error"
+        );
+        return;
+      }
+
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions
+          .query({ name: "geolocation" })
+          .then((res) => {
+            if (res.state === "granted") {
+              getAndSetLocation();
+            } else {
+              setStatus(
+                "📍 Please enable location and click “Allow Location”.",
+                "error"
+              );
+              controlsEl.style.display = "block";
+            }
+            res.onchange = () => init();
+          })
+          .catch(() => {
+            controlsEl.style.display = "block";
+          });
+      } else {
+        controlsEl.style.display = "block";
+      }
+    }
+
+    requestBtn.addEventListener("click", () => getAndSetLocation(true));
+    retryBtn.addEventListener("click", () => getAndSetLocation(true));
+
+    document.addEventListener("DOMContentLoaded", init);
   </script>
 </body>
 </html>
