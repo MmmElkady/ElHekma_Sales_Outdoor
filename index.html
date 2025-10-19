@@ -123,19 +123,26 @@
       return place;
     }
 
+    // ✅ نرجع Nominatim أولاً لأنها بتدي نتائج أفضل
     async function getAddress(lat, lon) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
+        const r = await fetch(url, { headers: { "User-Agent": `ElHekmaFeedback/2.0 (+${CONTACT_EMAIL})` } });
+        const data = await r.json();
+        if (data && data.display_name) {
+          return cleanAddress(data.display_name);
+        }
+      } catch (e) {
+        console.warn("Nominatim failed, trying BigDataCloud...");
+      }
+
+      // fallback: BigDataCloud
       try {
         const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
         const data = await res.json();
         if (data && (data.city || data.locality)) {
           return cleanAddress(`${data.locality || data.city}, ${data.principalSubdivision || ""}, ${data.countryName || ""}`);
         }
-      } catch (e) {}
-      try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
-        const r = await fetch(url, { headers: { "User-Agent": `ElHekmaFeedback/2.0 (+${CONTACT_EMAIL})` } });
-        const data = await r.json();
-        return cleanAddress(data?.display_name || "");
       } catch {
         return "";
       }
