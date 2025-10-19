@@ -104,7 +104,8 @@
       "https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url";
     const entryLocation = "entry.123519381";
     const CONTACT_EMAIL = "mmm842218@gmail.com";
-    const CACHE_DURATION = 5 * 60 * 1000; // 🕒 5 دقائق فقط
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 دقائق فقط
+    const REQUIRED_ACCURACY = 5; // ≤ 5 متر
 
     const statusEl = document.getElementById("status");
     const controlsEl = document.getElementById("controls");
@@ -123,22 +124,14 @@
       return place;
     }
 
-    // 🧭 Reverse Geocoding — Primary: BigDataCloud | Fallback: Nominatim
     async function getAddress(lat, lon) {
       try {
-        // Try BigDataCloud (faster + structured)
-        const res1 = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
-        );
-        const data1 = await res1.json();
-        if (data1 && data1.city) {
-          return cleanAddress(`${data1.locality || data1.city}, ${data1.principalSubdivision}, ${data1.countryName}`);
+        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+        const data = await res.json();
+        if (data && (data.city || data.locality)) {
+          return cleanAddress(`${data.locality || data.city}, ${data.principalSubdivision || ""}, ${data.countryName || ""}`);
         }
-      } catch (e) {
-        console.warn("BigDataCloud failed, trying Nominatim...");
-      }
-
-      // fallback to Nominatim
+      } catch (e) {}
       try {
         const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
         const r = await fetch(url, { headers: { "User-Agent": `ElHekmaFeedback/2.0 (+${CONTACT_EMAIL})` } });
@@ -189,8 +182,8 @@
       controlsEl.style.display = "none";
     }
 
-    async function getAndSetLocation(force = false) {
-      setStatus("📍 Getting your location…");
+    async function getHighAccuracyLocation(force = false) {
+      setStatus("📡 Detecting precise location (≤5m)… please wait a few seconds.", "");
       controlsEl.style.display = "none";
 
       const cache = !force ? loadCache() : null;
@@ -205,30 +198,46 @@
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
+      let bestPos = null;
+      const watchId = navigator.geolocation.watchPosition(
         async (pos) => {
-          const lat = pos.coords.latitude.toFixed(6);
-          const lon = pos.coords.longitude.toFixed(6);
-          if (!isValidCoords(lat, lon)) {
-            setStatus("⚠️ Invalid location coordinates.", "error");
-            return;
-          }
-          setStatus("⏳ Getting address…");
-          const address = await getAddress(lat, lon);
-          if (address) {
-            saveCache(lat, lon, address);
-            setForm(lat, lon, address);
-          } else {
-            setStatus("⚠️ Unable to retrieve address. Retry later.", "error");
+          const { latitude, longitude, accuracy } = pos.coords;
+          console.log("📍", latitude, longitude, "accuracy:", accuracy, "m");
+
+          if (!isValidCoords(latitude, longitude)) return;
+          if (!bestPos || accuracy < bestPos.coords.accuracy) bestPos = pos;
+
+          if (accuracy <= REQUIRED_ACCURACY) {
+            navigator.geolocation.clearWatch(watchId);
+            const address = await getAddress(latitude, longitude);
+            saveCache(latitude, longitude, address);
+            setForm(latitude, longitude, address);
           }
         },
         (err) => {
           console.warn("❌ Location error:", err);
-          setStatus("Please enable location access.", "error");
+          setStatus("⚠️ Please enable location access and retry.", "error");
           controlsEl.style.display = "block";
+          retryBtn.style.display = "inline-block";
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
       );
+
+      // ⏳ fallback after 30s
+      setTimeout(async () => {
+        if (bestPos) {
+          navigator.geolocation.clearWatch(watchId);
+          const { latitude, longitude } = bestPos.coords;
+          const address = await getAddress(latitude, longitude);
+          setStatus("⚠️ Used best available location (not full GPS).", "error");
+          saveCache(latitude, longitude, address);
+          setForm(latitude, longitude, address);
+        } else {
+          setStatus("❌ Unable to get accurate location.", "error");
+          controlsEl.style.display = "block";
+          retryBtn.style.display = "inline-block";
+        }
+      }, 30000);
     }
 
     function init() {
@@ -242,23 +251,21 @@
           .query({ name: "geolocation" })
           .then((res) => {
             if (res.state === "granted") {
-              getAndSetLocation();
+              getHighAccuracyLocation();
             } else {
               setStatus("📍 Please enable location and click “Allow Location”.", "error");
               controlsEl.style.display = "block";
             }
             res.onchange = () => init();
           })
-          .catch(() => {
-            controlsEl.style.display = "block";
-          });
+          .catch(() => controlsEl.style.display = "block");
       } else {
         controlsEl.style.display = "block";
       }
     }
 
-    requestBtn.addEventListener("click", () => getAndSetLocation(true));
-    retryBtn.addEventListener("click", () => getAndSetLocation(true));
+    requestBtn.addEventListener("click", () => getHighAccuracyLocation(true));
+    retryBtn.addEventListener("click", () => getHighAccuracyLocation(true));
     document.addEventListener("DOMContentLoaded", init);
   </script>
 </body>
