@@ -104,7 +104,7 @@
       "https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url";
     const entryLocation = "entry.123519381";
     const CONTACT_EMAIL = "mmm842218@gmail.com";
-    const CACHE_DURATION = 5 * 60 * 1000; // 5 دقائق فقط
+    const CACHE_DURATION = 5 * 60 * 1000; // cache 5 minutes
 
     const statusEl = document.getElementById("status");
     const controlsEl = document.getElementById("controls");
@@ -123,33 +123,30 @@
       return place;
     }
 
-    // ✅ نرجع Nominatim أولاً لأنها بتدي نتائج أفضل
     async function getAddress(lat, lon) {
       try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
-        const r = await fetch(url, { headers: { "User-Agent": `ElHekmaFeedback/2.0 (+${CONTACT_EMAIL})` } });
-        const data = await r.json();
-        if (data && data.display_name) {
-          return cleanAddress(data.display_name);
-        }
+        const res1 = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`
+        );
+        const data1 = await res1.json();
+        if (data1?.display_name) return cleanAddress(data1.display_name);
       } catch (e) {
-        console.warn("Nominatim failed, trying BigDataCloud...");
+        console.warn("Nominatim failed:", e);
       }
-
-      // fallback: BigDataCloud
       try {
-        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
-        const data = await res.json();
-        if (data && (data.city || data.locality)) {
-          return cleanAddress(`${data.locality || data.city}, ${data.principalSubdivision || ""}, ${data.countryName || ""}`);
-        }
+        const res2 = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+        );
+        const data2 = await res2.json();
+        if (data2 && data2.city)
+          return cleanAddress(`${data2.locality || data2.city}, ${data2.principalSubdivision}, ${data2.countryName}`);
       } catch {
         return "";
       }
     }
 
     function isValidCoords(lat, lon) {
-      return lat && lon && !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0 && lat <= 90 && lon <= 180;
+      return lat && lon && !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0;
     }
 
     function saveCache(lat, lon, address) {
@@ -188,8 +185,8 @@
       controlsEl.style.display = "none";
     }
 
-    async function getOneShotLocation(force = false) {
-      setStatus("📍 Getting your current location… please wait.", "");
+    async function getAndSetLocation(force = false) {
+      setStatus("📍 Getting your location…");
       controlsEl.style.display = "none";
 
       const cache = !force ? loadCache() : null;
@@ -208,22 +205,21 @@
         async (pos) => {
           const lat = pos.coords.latitude.toFixed(6);
           const lon = pos.coords.longitude.toFixed(6);
-          if (!isValidCoords(lat, lon)) {
-            setStatus("⚠️ Invalid coordinates received.", "error");
-            return;
-          }
-          setStatus("⏳ Getting address details…");
+          setStatus("⏳ Getting address…");
           const address = await getAddress(lat, lon);
-          saveCache(lat, lon, address);
-          setForm(lat, lon, address);
+          if (address) {
+            saveCache(lat, lon, address);
+            setForm(lat, lon, address);
+          } else {
+            setStatus("⚠️ Unable to retrieve address. Retry later.", "error");
+          }
         },
         (err) => {
           console.warn("❌ Location error:", err);
-          setStatus("⚠️ Please enable location access and retry.", "error");
+          setStatus("Please enable location access.", "error");
           controlsEl.style.display = "block";
-          retryBtn.style.display = "inline-block";
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
@@ -238,21 +234,23 @@
           .query({ name: "geolocation" })
           .then((res) => {
             if (res.state === "granted") {
-              getOneShotLocation();
+              getAndSetLocation();
             } else {
               setStatus("📍 Please enable location and click “Allow Location”.", "error");
               controlsEl.style.display = "block";
             }
             res.onchange = () => init();
           })
-          .catch(() => controlsEl.style.display = "block");
+          .catch(() => {
+            controlsEl.style.display = "block";
+          });
       } else {
         controlsEl.style.display = "block";
       }
     }
 
-    requestBtn.addEventListener("click", () => getOneShotLocation(true));
-    retryBtn.addEventListener("click", () => getOneShotLocation(true));
+    requestBtn.addEventListener("click", () => getAndSetLocation(true));
+    retryBtn.addEventListener("click", () => getAndSetLocation(true));
     document.addEventListener("DOMContentLoaded", init);
   </script>
 </body>
