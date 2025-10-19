@@ -91,14 +91,11 @@
 <body>
   <div class="container">
     <h3>Your location will be auto-filled in the form</h3>
-
     <div id="status">Checking location permissions…</div>
-
     <div id="controls">
       <button id="requestBtn">Allow Location</button>
       <button id="retryBtn" style="display:none;">Retry</button>
     </div>
-
     <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
   </div>
 
@@ -121,32 +118,30 @@
     }
 
     function cleanAddress(place) {
-      place = place
-        .replace(
-          /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+/g,
-          ""
-        )
-        .trim();
-      place = place
-        .replace(/,+/g, ",")
-        .replace(/\s+,/g, ",")
-        .replace(/,\s+/g, ", ")
-        .trim();
+      place = place.replace(/[\u0600-\u06FF]+/g, "").trim();
+      place = place.replace(/,+/g, ",").replace(/\s+,/g, ",").replace(/,\s+/g, ", ").trim();
       return place;
     }
 
-    // 🧭 Reverse Geocoding API
-    async function reverseGeocodeNominatim(lat, lon) {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(
-        CONTACT_EMAIL
-      )}`;
+    // 🧭 Reverse Geocoding — Primary: BigDataCloud | Fallback: Nominatim
+    async function getAddress(lat, lon) {
       try {
-        const r = await fetch(url, {
-          headers: {
-            "User-Agent": `ElHekmaFeedback/2.0 (+${CONTACT_EMAIL})`,
-          },
-        });
-        if (!r.ok) throw new Error("Network");
+        // Try BigDataCloud (faster + structured)
+        const res1 = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+        );
+        const data1 = await res1.json();
+        if (data1 && data1.city) {
+          return cleanAddress(`${data1.locality || data1.city}, ${data1.principalSubdivision}, ${data1.countryName}`);
+        }
+      } catch (e) {
+        console.warn("BigDataCloud failed, trying Nominatim...");
+      }
+
+      // fallback to Nominatim
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&email=${encodeURIComponent(CONTACT_EMAIL)}`;
+        const r = await fetch(url, { headers: { "User-Agent": `ElHekmaFeedback/2.0 (+${CONTACT_EMAIL})` } });
         const data = await r.json();
         return cleanAddress(data?.display_name || "");
       } catch {
@@ -155,16 +150,7 @@
     }
 
     function isValidCoords(lat, lon) {
-      return (
-        lat &&
-        lon &&
-        !isNaN(lat) &&
-        !isNaN(lon) &&
-        lat !== 0 &&
-        lon !== 0 &&
-        lat <= 90 &&
-        lon <= 180
-      );
+      return lat && lon && !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0 && lat <= 90 && lon <= 180;
     }
 
     function saveCache(lat, lon, address) {
@@ -194,12 +180,8 @@
 
       const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
       const value = `${place} | ${mapsLink}`;
-      const unique = `nocache=${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(2, 8)}`;
-      const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(
-        value
-      )}&${unique}`;
+      const unique = `nocache=${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}&${unique}`;
 
       setStatus("✅ Location detected successfully!", "success");
       iframeEl.src = url;
@@ -225,14 +207,14 @@
 
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
+          const lat = pos.coords.latitude.toFixed(6);
+          const lon = pos.coords.longitude.toFixed(6);
           if (!isValidCoords(lat, lon)) {
             setStatus("⚠️ Invalid location coordinates.", "error");
             return;
           }
           setStatus("⏳ Getting address…");
-          const address = await reverseGeocodeNominatim(lat, lon);
+          const address = await getAddress(lat, lon);
           if (address) {
             saveCache(lat, lon, address);
             setForm(lat, lon, address);
@@ -251,10 +233,7 @@
 
     function init() {
       if (!window.isSecureContext && !location.hostname.includes("localhost")) {
-        setStatus(
-          "⚠️ Page must be loaded via HTTPS for location to work.",
-          "error"
-        );
+        setStatus("⚠️ Page must be loaded via HTTPS for location to work.", "error");
         return;
       }
 
@@ -265,10 +244,7 @@
             if (res.state === "granted") {
               getAndSetLocation();
             } else {
-              setStatus(
-                "📍 Please enable location and click “Allow Location”.",
-                "error"
-              );
+              setStatus("📍 Please enable location and click “Allow Location”.", "error");
               controlsEl.style.display = "block";
             }
             res.onchange = () => init();
@@ -283,7 +259,6 @@
 
     requestBtn.addEventListener("click", () => getAndSetLocation(true));
     retryBtn.addEventListener("click", () => getAndSetLocation(true));
-
     document.addEventListener("DOMContentLoaded", init);
   </script>
 </body>
