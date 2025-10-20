@@ -97,6 +97,9 @@
       <button id="retryBtn" style="display:none;">Retry</button>
     </div>
     <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
+    <audio id="successSound" preload="auto">
+      <source src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3" type="audio/mpeg" />
+    </audio>
   </div>
 
   <script>
@@ -105,26 +108,28 @@
     const entryLocation = "entry.123519381";
     const CONTACT_EMAIL = "mmm842218@gmail.com";
     const CACHE_DURATION = 5 * 60 * 1000; // cache 5 minutes
+    const MAX_RETRIES = 3;
+    const DESIRED_ACCURACY = 10; // meters
 
     const statusEl = document.getElementById("status");
     const controlsEl = document.getElementById("controls");
     const requestBtn = document.getElementById("requestBtn");
     const retryBtn = document.getElementById("retryBtn");
     const iframeEl = document.getElementById("myForm");
+    const successSound = document.getElementById("successSound");
 
-    // 🌍 Detect user language
     const lang = (navigator.language || "en").startsWith("ar") ? "ar" : "en";
 
-    // 🗣️ Messages in multiple languages
     const messages = {
       en: {
         checking: "Checking location permissions…",
         allow: "📍 Please enable location and click “Allow Location”.",
         getting: "📍 Getting your location…",
+        retrying: "♻️ Improving location accuracy…",
         success: "✅ Location detected successfully!",
         invalid: "⚠️ Invalid location. Please enable GPS.",
         noGeo: "❌ Geolocation not supported in this browser.",
-        netError: "⚠️ Internet seems unavailable or too slow. Please check your connection and retry.",
+        netError: "⚠️ Internet seems unavailable or too slow. Please check your connection.",
         enableLoc: "Please enable location access.",
         noAddress: "⚠️ Unable to retrieve address. Retry later.",
         mustHttps: "⚠️ Page must be loaded via HTTPS for location to work."
@@ -133,16 +138,16 @@
         checking: "جارٍ التحقق من صلاحيات الموقع...",
         allow: "📍 يُرجى تفعيل الموقع ثم الضغط على «السماح بالموقع».",
         getting: "📍 جارٍ تحديد موقعك...",
-        success: "✅ تم تحديد الموقع بنجاح!",
+        retrying: "♻️ جارٍ تحسين دقة الموقع...",
+        success: "✅ تم تحديد الموقع بدقة!",
         invalid: "⚠️ الموقع غير صالح، يُرجى تفعيل GPS.",
         noGeo: "❌ خاصية الموقع غير مدعومة في هذا المتصفح.",
-        netError: "⚠️ يبدو أن الإنترنت غير متاح أو الاتصال ضعيف. يُرجى التحقق من الشبكة ثم إعادة المحاولة.",
+        netError: "⚠️ يبدو أن الإنترنت غير متاح أو الاتصال ضعيف. يُرجى التحقق من الشبكة.",
         enableLoc: "يُرجى السماح بالوصول إلى الموقع.",
         noAddress: "⚠️ تعذر الحصول على العنوان. حاول لاحقًا.",
         mustHttps: "⚠️ يجب فتح الصفحة عبر HTTPS ليعمل الموقع بشكل صحيح."
       }
     };
-
     const t = (key) => messages[lang][key] || messages.en[key];
 
     function setStatus(msg, cls = "") {
@@ -171,23 +176,30 @@
       const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
       const value = `${place} | ${mapsLink}`;
       const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}&nocache=${Date.now()}`;
-
       iframeEl.src = url;
       iframeEl.style.display = "block";
       controlsEl.style.display = "none";
       setStatus(t("success"), "success");
+      successSound.play().catch(() => {});
+    }
 
-      // ⏱️ Detect slow or disconnected network
-      let loaded = false;
-      iframeEl.onload = () => (loaded = true);
-      setTimeout(() => {
-        if (!loaded) {
-          iframeEl.style.display = "none";
-          setStatus(t("netError"), "error");
-          controlsEl.style.display = "block";
-          retryBtn.style.display = "inline-block";
-        }
-      }, 10000);
+    async function getHighAccuracyLocation(attempt = 1) {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const acc = pos.coords.accuracy;
+            console.log(`Attempt ${attempt}: accuracy ${acc}m`);
+            if (acc <= DESIRED_ACCURACY || attempt >= MAX_RETRIES) {
+              resolve(pos);
+            } else {
+              setStatus(t("retrying"));
+              setTimeout(() => resolve(getHighAccuracyLocation(attempt + 1)), 2000);
+            }
+          },
+          (err) => reject(err),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
     }
 
     async function getAndSetLocation(force = false) {
@@ -199,21 +211,18 @@
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const lat = pos.coords.latitude.toFixed(6);
-          const lon = pos.coords.longitude.toFixed(6);
-          const address = await getAddress(lat, lon);
-          if (address) setForm(lat, lon, address);
-          else setStatus(t("noAddress"), "error");
-        },
-        (err) => {
-          console.warn("❌ Location error:", err);
-          setStatus(t("enableLoc"), "error");
-          controlsEl.style.display = "block";
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
+      try {
+        const pos = await getHighAccuracyLocation();
+        const lat = pos.coords.latitude.toFixed(6);
+        const lon = pos.coords.longitude.toFixed(6);
+        const address = await getAddress(lat, lon);
+        if (address) setForm(lat, lon, address);
+        else setStatus(t("noAddress"), "error");
+      } catch (err) {
+        console.warn("❌ Location error:", err);
+        setStatus(t("enableLoc"), "error");
+        controlsEl.style.display = "block";
+      }
     }
 
     function init() {
