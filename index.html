@@ -1,137 +1,241 @@
-<script>
-  const FORM_BASE_URL =
-    "https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url";
-  const entryLocation = "entry.123519381";
-  const CONTACT_EMAIL = "mmm842218@gmail.com";
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 دقائق
-
-  const statusEl = document.getElementById("status");
-  const controlsEl = document.getElementById("controls");
-  const requestBtn = document.getElementById("requestBtn");
-  const retryBtn = document.getElementById("retryBtn");
-  const iframeEl = document.getElementById("myForm");
-
-  // 🌍 تحديد اللغة (عربي أو إنجليزي)
-  const lang = (navigator.language || "en").startsWith("ar") ? "ar" : "en";
-
-  // 🗣️ الرسائل بعدة لغات
-  const messages = {
-    en: {
-      checking: "Checking location permissions…",
-      allow: "📍 Please enable location and click “Allow Location”.",
-      getting: "📍 Getting your location…",
-      success: "✅ Location detected successfully!",
-      invalid: "⚠️ Invalid location. Please enable GPS.",
-      noGeo: "❌ Geolocation not supported in this browser.",
-      netError: "⚠️ Internet seems unavailable or too slow. Please check your connection and retry.",
-      enableLoc: "Please enable location access.",
-      noAddress: "⚠️ Unable to retrieve address. Retry later.",
-      mustHttps: "⚠️ Page must be loaded via HTTPS for location to work."
-    },
-    ar: {
-      checking: "جارٍ التحقق من صلاحيات الموقع...",
-      allow: "📍 يُرجى تفعيل الموقع ثم الضغط على «السماح بالموقع».",
-      getting: "📍 جارٍ تحديد موقعك...",
-      success: "✅ تم تحديد الموقع بنجاح!",
-      invalid: "⚠️ الموقع غير صالح، يُرجى تفعيل GPS.",
-      noGeo: "❌ خاصية الموقع غير مدعومة في هذا المتصفح.",
-      netError: "⚠️ يبدو أن الإنترنت غير متاح أو الاتصال ضعيف. يُرجى التحقق من الشبكة ثم إعادة المحاولة.",
-      enableLoc: "يُرجى السماح بالوصول إلى الموقع.",
-      noAddress: "⚠️ تعذر الحصول على العنوان. حاول لاحقًا.",
-      mustHttps: "⚠️ يجب فتح الصفحة عبر HTTPS ليعمل الموقع بشكل صحيح."
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>El Hekma | Smart Location Feedback</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f6f8fa;
+      margin: 0;
+      padding: 0;
+      color: #222;
+      direction: ltr;
     }
-  };
 
-  // 🔄 دالة للحصول على الرسالة حسب اللغة
-  const t = (key) => messages[lang][key] || messages.en[key];
+    .container {
+      max-width: 520px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px #0001;
+      padding: 30px 22px 18px;
+      text-align: center;
+    }
 
-  function setStatus(msg, cls = "") {
-    statusEl.innerText = msg;
-    statusEl.className = cls;
-  }
+    h3 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      color: #2267b7;
+      font-weight: 600;
+    }
 
-  function cleanAddress(place) {
-    place = place.replace(/[\u0600-\u06FF]+/g, "").trim();
-    place = place.replace(/,+/g, ",").replace(/\s+,/g, ",").replace(/,\s+/g, ", ").trim();
-    return place;
-  }
+    #status {
+      margin: 14px auto 18px;
+      padding: 12px 18px;
+      background: #fff3cd;
+      color: #856404;
+      border-radius: 7px;
+      font-size: 1rem;
+      min-height: 54px;
+      transition: background 0.3s, color 0.3s;
+    }
 
-  async function getAddress(lat, lon) {
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=${lang}&email=${encodeURIComponent(CONTACT_EMAIL)}`);
-      const data = await res.json();
-      if (data?.display_name) return cleanAddress(data.display_name);
-    } catch {}
-    return "";
-  }
+    #status.error {
+      background: #fdeaea;
+      color: #c91e2c;
+    }
 
-  function setForm(lat, lon, place) {
-    const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
-    const value = `${place} | ${mapsLink}`;
-    const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}&nocache=${Date.now()}`;
+    #status.success {
+      background: #e8f5e9;
+      color: #207d32;
+    }
 
-    iframeEl.src = url;
-    iframeEl.style.display = "block";
-    controlsEl.style.display = "none";
-    setStatus(t("success"), "success");
+    #controls {
+      margin-bottom: 16px;
+      display: none;
+    }
 
-    // ⏱️ تحقق من فشل التحميل خلال 10 ثواني
-    let loaded = false;
-    iframeEl.onload = () => (loaded = true);
-    setTimeout(() => {
-      if (!loaded) {
-        iframeEl.style.display = "none";
-        setStatus(t("netError"), "error");
-        controlsEl.style.display = "block";
-        retryBtn.style.display = "inline-block";
+    button {
+      padding: 9px 14px;
+      border-radius: 8px;
+      border: 0;
+      background: #2267b7;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      margin: 4px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #195497;
+    }
+
+    iframe {
+      width: 100%;
+      height: 600px;
+      border: 0;
+      border-radius: 8px;
+      background: #f2f3f5;
+      display: none;
+    }
+
+    @media (max-width: 650px) {
+      .container { padding: 12px 8px; }
+      iframe { height: 440px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h3>Your location will be auto-filled in the form</h3>
+    <div id="status">Checking location permissions…</div>
+    <div id="controls">
+      <button id="requestBtn">Allow Location</button>
+      <button id="retryBtn" style="display:none;">Retry</button>
+    </div>
+    <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
+  </div>
+
+  <script>
+    const FORM_BASE_URL =
+      "https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url";
+    const entryLocation = "entry.123519381";
+    const CONTACT_EMAIL = "mmm842218@gmail.com";
+    const CACHE_DURATION = 5 * 60 * 1000; // cache 5 minutes
+
+    const statusEl = document.getElementById("status");
+    const controlsEl = document.getElementById("controls");
+    const requestBtn = document.getElementById("requestBtn");
+    const retryBtn = document.getElementById("retryBtn");
+    const iframeEl = document.getElementById("myForm");
+
+    // 🌍 Detect user language
+    const lang = (navigator.language || "en").startsWith("ar") ? "ar" : "en";
+
+    // 🗣️ Messages in multiple languages
+    const messages = {
+      en: {
+        checking: "Checking location permissions…",
+        allow: "📍 Please enable location and click “Allow Location”.",
+        getting: "📍 Getting your location…",
+        success: "✅ Location detected successfully!",
+        invalid: "⚠️ Invalid location. Please enable GPS.",
+        noGeo: "❌ Geolocation not supported in this browser.",
+        netError: "⚠️ Internet seems unavailable or too slow. Please check your connection and retry.",
+        enableLoc: "Please enable location access.",
+        noAddress: "⚠️ Unable to retrieve address. Retry later.",
+        mustHttps: "⚠️ Page must be loaded via HTTPS for location to work."
+      },
+      ar: {
+        checking: "جارٍ التحقق من صلاحيات الموقع...",
+        allow: "📍 يُرجى تفعيل الموقع ثم الضغط على «السماح بالموقع».",
+        getting: "📍 جارٍ تحديد موقعك...",
+        success: "✅ تم تحديد الموقع بنجاح!",
+        invalid: "⚠️ الموقع غير صالح، يُرجى تفعيل GPS.",
+        noGeo: "❌ خاصية الموقع غير مدعومة في هذا المتصفح.",
+        netError: "⚠️ يبدو أن الإنترنت غير متاح أو الاتصال ضعيف. يُرجى التحقق من الشبكة ثم إعادة المحاولة.",
+        enableLoc: "يُرجى السماح بالوصول إلى الموقع.",
+        noAddress: "⚠️ تعذر الحصول على العنوان. حاول لاحقًا.",
+        mustHttps: "⚠️ يجب فتح الصفحة عبر HTTPS ليعمل الموقع بشكل صحيح."
       }
-    }, 10000);
-  }
+    };
 
-  async function getAndSetLocation(force = false) {
-    setStatus(t("getting"));
-    controlsEl.style.display = "none";
+    const t = (key) => messages[lang][key] || messages.en[key];
 
-    if (!navigator.geolocation) {
-      setStatus(t("noGeo"), "error");
-      return;
+    function setStatus(msg, cls = "") {
+      statusEl.innerText = msg;
+      statusEl.className = cls;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude.toFixed(6);
-        const lon = pos.coords.longitude.toFixed(6);
-        const address = await getAddress(lat, lon);
-        if (address) setForm(lat, lon, address);
-        else setStatus(t("noAddress"), "error");
-      },
-      (err) => {
-        console.warn("❌ Location error:", err);
-        setStatus(t("enableLoc"), "error");
-        controlsEl.style.display = "block";
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  }
-
-  function init() {
-    if (!window.isSecureContext && !location.hostname.includes("localhost")) {
-      setStatus(t("mustHttps"), "error");
-      return;
+    function cleanAddress(place) {
+      place = place.replace(/[\u0600-\u06FF]+/g, "").trim();
+      place = place.replace(/,+/g, ",").replace(/\s+,/g, ",").replace(/,\s+/g, ", ").trim();
+      return place;
     }
 
-    if (navigator.permissions && navigator.permissions.query) {
-      navigator.permissions.query({ name: "geolocation" }).then((res) => {
-        if (res.state === "granted") getAndSetLocation();
-        else {
-          setStatus(t("allow"), "error");
+    async function getAddress(lat, lon) {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=${lang}&email=${encodeURIComponent(CONTACT_EMAIL)}`
+        );
+        const data = await res.json();
+        if (data?.display_name) return cleanAddress(data.display_name);
+      } catch {}
+      return "";
+    }
+
+    function setForm(lat, lon, place) {
+      const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
+      const value = `${place} | ${mapsLink}`;
+      const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}&nocache=${Date.now()}`;
+
+      iframeEl.src = url;
+      iframeEl.style.display = "block";
+      controlsEl.style.display = "none";
+      setStatus(t("success"), "success");
+
+      // ⏱️ Detect slow or disconnected network
+      let loaded = false;
+      iframeEl.onload = () => (loaded = true);
+      setTimeout(() => {
+        if (!loaded) {
+          iframeEl.style.display = "none";
+          setStatus(t("netError"), "error");
           controlsEl.style.display = "block";
+          retryBtn.style.display = "inline-block";
         }
-      });
-    } else controlsEl.style.display = "block";
-  }
+      }, 10000);
+    }
 
-  requestBtn.addEventListener("click", () => getAndSetLocation(true));
-  retryBtn.addEventListener("click", () => getAndSetLocation(true));
-  document.addEventListener("DOMContentLoaded", () => setStatus(t("checking")) || init());
-</script>
+    async function getAndSetLocation(force = false) {
+      setStatus(t("getting"));
+      controlsEl.style.display = "none";
+
+      if (!navigator.geolocation) {
+        setStatus(t("noGeo"), "error");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude.toFixed(6);
+          const lon = pos.coords.longitude.toFixed(6);
+          const address = await getAddress(lat, lon);
+          if (address) setForm(lat, lon, address);
+          else setStatus(t("noAddress"), "error");
+        },
+        (err) => {
+          console.warn("❌ Location error:", err);
+          setStatus(t("enableLoc"), "error");
+          controlsEl.style.display = "block";
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
+    function init() {
+      if (!window.isSecureContext && !location.hostname.includes("localhost")) {
+        setStatus(t("mustHttps"), "error");
+        return;
+      }
+
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: "geolocation" }).then((res) => {
+          if (res.state === "granted") getAndSetLocation();
+          else {
+            setStatus(t("allow"), "error");
+            controlsEl.style.display = "block";
+          }
+        });
+      } else controlsEl.style.display = "block";
+    }
+
+    requestBtn.addEventListener("click", () => getAndSetLocation(true));
+    retryBtn.addEventListener("click", () => getAndSetLocation(true));
+    document.addEventListener("DOMContentLoaded", () => setStatus(t("checking")) || init());
+  </script>
+</body>
+</html>
