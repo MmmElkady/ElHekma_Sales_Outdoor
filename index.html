@@ -1,252 +1,126 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>El Hekma | Sales_Out_Door</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: #f6f8fa;
-      margin: 0;
-      padding: 0;
-      color: #222;
-      direction: ltr;
-    }
-
-    .container {
-      max-width: 520px;
-      margin: 40px auto;
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 4px 24px #0001;
-      padding: 30px 22px 18px;
-      text-align: center;
-    }
-
-    h3 {
-      margin-top: 0;
-      font-size: 1.25rem;
-      color: #2267b7;
-      font-weight: 600;
-    }
-
-    #status {
-      margin: 14px auto 18px;
-      padding: 12px 18px;
-      background: #fff3cd;
-      color: #856404;
-      border-radius: 7px;
-      font-size: 1rem;
-      min-height: 54px;
-      transition: background 0.3s, color 0.3s;
-    }
-
-    #status.error {
-      background: #fdeaea;
-      color: #c91e2c;
-    }
-
-    #status.success {
-      background: #e8f5e9;
-      color: #207d32;
-    }
-
-    #controls {
-      margin-bottom: 16px;
-      display: none;
-    }
-
-    button {
-      padding: 9px 14px;
-      border-radius: 8px;
-      border: 0;
-      background: #2267b7;
-      color: white;
-      font-size: 1rem;
-      cursor: pointer;
-      margin: 4px;
-      transition: background 0.2s;
-    }
-
-    button:hover {
-      background: #195497;
-    }
-
-    iframe {
-      width: 100%;
-      height: 600px;
-      border: 0;
-      border-radius: 8px;
-      background: #f2f3f5;
-      display: none;
-    }
-
-    @media (max-width: 650px) {
-      .container { padding: 12px 8px; }
-      iframe { height: 440px; }
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>El Hekma | Sales_Out_Door</title>
+<style>
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f6f8fa;margin:0;padding:0;color:#222}
+  .container{max-width:520px;margin:40px auto;background:#fff;border-radius:14px;box-shadow:0 4px 24px #0001;padding:30px 22px 18px;text-align:center}
+  h3{margin-top:0;font-size:1.25rem;color:#2267b7;font-weight:600}
+  #status{margin:14px auto 18px;padding:12px 18px;background:#fff3cd;color:#856404;border-radius:7px;font-size:1rem;min-height:54px;transition:.2s}
+  #status.error{background:#fdeaea;color:#c91e2c}
+  #status.success{background:#e8f5e9;color:#207d32}
+  button{padding:9px 14px;border-radius:8px;border:0;background:#2267b7;color:#fff;font-size:1rem;cursor:pointer;margin:4px}
+  button:hover{background:#195497}
+  iframe{width:100%;height:600px;border:0;border-radius:8px;background:#f2f3f5;display:none}
+  @media(max-width:650px){.container{padding:12px 8px}iframe{height:440px}}
+</style>
 </head>
 <body>
-  <div class="container">
-    <h3>Your location will be auto-filled in the form</h3>
-    <div id="status">Checking location permissions…</div>
-    <div id="controls">
-      <button id="requestBtn">Allow Location</button>
-      <button id="retryBtn" style="display:none;">Retry</button>
-    </div>
-    <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
-    <audio id="successSound" preload="auto">
-      <source src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3" type="audio/mpeg" />
-    </audio>
+<div class="container">
+  <h3>Your location will be auto-filled in the form</h3>
+  <div id="status">Checking location permissions…</div>
+  <div id="controls" style="display:none">
+    <button id="requestBtn">Allow Location</button>
+    <button id="retryBtn" style="display:none;">Retry</button>
   </div>
+  <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
+  <audio id="successSound" preload="auto">
+    <source src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3" type="audio/mpeg" />
+  </audio>
+</div>
 
-  <script>
-    const FORM_BASE_URL =
-      "https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url";
-    const entryLocation = "entry.123519381";
-    const CONTACT_EMAIL = "mmm842218@gmail.com";
-    const CACHE_DURATION = 5 * 60 * 1000; // cache 5 minutes
-    const MAX_RETRIES = 3;
-    const DESIRED_ACCURACY = 10; // meters
+<script>
+const FORM_BASE_URL="https://docs.google.com/forms/d/1PxC3Z-hrlVTmSoQzMZN3ZO1hVyJv6r7K5Le1GyVj1K0/viewform?usp=pp_url";
+const entryLocation="entry.123519381";
+const CONTACT_EMAIL="mmm842218@gmail.com";
+const CACHE_DURATION=5*60*1000; // 5 minutes
 
-    const statusEl = document.getElementById("status");
-    const controlsEl = document.getElementById("controls");
-    const requestBtn = document.getElementById("requestBtn");
-    const retryBtn = document.getElementById("retryBtn");
-    const iframeEl = document.getElementById("myForm");
-    const successSound = document.getElementById("successSound");
+const s=document.getElementById("status");
+const c=document.getElementById("controls");
+const f=document.getElementById("myForm");
+const snd=document.getElementById("successSound");
+const req=document.getElementById("requestBtn");
+const rty=document.getElementById("retryBtn");
 
-    const lang = (navigator.language || "en").startsWith("ar") ? "ar" : "en";
+const lang=(navigator.language||"en").startsWith("ar")?"ar":"en";
+const msgs={
+ en:{checking:"Checking location permissions…",allow:"📍 Please enable location and click “Allow Location”.",
+ getting:"📍 Getting your location…",success:"✅ Location detected successfully!",
+ noGeo:"❌ Geolocation not supported.",mustHttps:"⚠️ Page must use HTTPS."},
+ ar:{checking:"جارٍ التحقق من صلاحيات الموقع...",allow:"📍 يُرجى تفعيل الموقع ثم الضغط على «السماح بالموقع».",
+ getting:"📍 جارٍ تحديد موقعك...",success:"✅ تم تحديد الموقع بنجاح!",
+ noGeo:"❌ الموقع غير مدعوم.",mustHttps:"⚠️ يجب فتح الصفحة عبر HTTPS."}
+};
+const t=k=>msgs[lang][k]||msgs.en[k];
+const setStatus=(m,cls="")=>{s.innerText=m;s.className=cls;};
 
-    const messages = {
-      en: {
-        checking: "Checking location permissions…",
-        allow: "📍 Please enable location and click “Allow Location”.",
-        getting: "📍 Getting your location…",
-        retrying: "♻️ Improving location accuracy…",
-        success: "✅ Location detected successfully!",
-        invalid: "⚠️ Invalid location. Please enable GPS.",
-        noGeo: "❌ Geolocation not supported in this browser.",
-        netError: "⚠️ Internet seems unavailable or too slow. Please check your connection.",
-        enableLoc: "Please enable location access.",
-        noAddress: "⚠️ Unable to retrieve address. Retry later.",
-        mustHttps: "⚠️ Page must be loaded via HTTPS for location to work."
-      },
-      ar: {
-        checking: "جارٍ التحقق من صلاحيات الموقع...",
-        allow: "📍 يُرجى تفعيل الموقع ثم الضغط على «السماح بالموقع».",
-        getting: "📍 جارٍ تحديد موقعك...",
-        retrying: "♻️ جارٍ تحسين دقة الموقع...",
-        success: "✅ تم تحديد الموقع بدقة!",
-        invalid: "⚠️ الموقع غير صالح، يُرجى تفعيل GPS.",
-        noGeo: "❌ خاصية الموقع غير مدعومة في هذا المتصفح.",
-        netError: "⚠️ يبدو أن الإنترنت غير متاح أو الاتصال ضعيف. يُرجى التحقق من الشبكة.",
-        enableLoc: "يُرجى السماح بالوصول إلى الموقع.",
-        noAddress: "⚠️ تعذر الحصول على العنوان. حاول لاحقًا.",
-        mustHttps: "⚠️ يجب فتح الصفحة عبر HTTPS ليعمل الموقع بشكل صحيح."
-      }
-    };
-    const t = (key) => messages[lang][key] || messages.en[key];
+function saveCache(lat,lon,addr){
+ try{localStorage.setItem("eh_cache",JSON.stringify({lat,lon,addr,ts:Date.now()}))}catch(e){}
+}
+function loadCache(){
+ try{
+  const c=JSON.parse(localStorage.getItem("eh_cache"));
+  if(c && Date.now()-c.ts<CACHE_DURATION)return c;
+ }catch(e){}
+ return null;
+}
 
-    function setStatus(msg, cls = "") {
-      statusEl.innerText = msg;
-      statusEl.className = cls;
-    }
+function clean(a){return (a||"").replace(/,+/g,",").replace(/\s*,\s*/g,", ").replace(/^,+|,+$/g,"");}
 
-    function cleanAddress(place) {
-      place = place.replace(/[\u0600-\u06FF]+/g, "").trim();
-      place = place.replace(/,+/g, ",").replace(/\s+,/g, ",").replace(/,\s+/g, ", ").trim();
-      return place;
-    }
+async function fastAddress(lat,lon){
+ const nomUrl=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=${lang}&email=${CONTACT_EMAIL}`;
+ const bdcUrl=`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=${lang}`;
+ try{
+  const race=await Promise.any([
+    fetch(bdcUrl).then(r=>r.json()).then(d=>clean(`${d.locality||d.city||""}, ${d.principalSubdivision||""}, ${d.countryName||""}`)),
+    fetch(nomUrl,{headers:{"User-Agent":"ElHekma/fast"}}).then(r=>r.json()).then(d=>clean(d.display_name))
+  ]);
+  return race;
+ }catch(e){return "";}
+}
 
-    async function getAddress(lat, lon) {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=${lang}&email=${encodeURIComponent(CONTACT_EMAIL)}`
-        );
-        const data = await res.json();
-        if (data?.display_name) return cleanAddress(data.display_name);
-      } catch {}
-      return "";
-    }
+function setForm(lat,lon,addr){
+ const maps=`https://www.google.com/maps?q=${lat},${lon}`;
+ const val=`${addr||"Unknown"} | ${maps}`;
+ f.src=`${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(val)}&nocache=${Date.now()}`;
+ f.style.display="block"; c.style.display="none";
+ setStatus(t("success"),"success"); snd.play().catch(()=>{});
+ saveCache(lat,lon,addr);
+}
 
-    function setForm(lat, lon, place) {
-      const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
-      const value = `${place} | ${mapsLink}`;
-      const url = `${FORM_BASE_URL}&${entryLocation}=${encodeURIComponent(value)}&nocache=${Date.now()}`;
-      iframeEl.src = url;
-      iframeEl.style.display = "block";
-      controlsEl.style.display = "none";
-      setStatus(t("success"), "success");
-      successSound.play().catch(() => {});
-    }
+async function getLocation(){
+ setStatus(t("getting"));
+ const cache=loadCache();
+ if(cache){setForm(cache.lat,cache.lon,cache.addr);return;}
+ if(!navigator.geolocation){setStatus(t("noGeo"),"error");return;}
+ const opts={enableHighAccuracy:false,timeout:5000,maximumAge:10000};
+ navigator.geolocation.getCurrentPosition(async pos=>{
+  const lat=pos.coords.latitude.toFixed(6),lon=pos.coords.longitude.toFixed(6);
+  const addr=await fastAddress(lat,lon);
+  setForm(lat,lon,addr||`Lat:${lat}, Lon:${lon}`);
+ },err=>{
+  console.warn("Location error",err);
+  setStatus(t("allow"),"error"); c.style.display="block";
+ },opts);
+}
 
-    async function getHighAccuracyLocation(attempt = 1) {
-      return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const acc = pos.coords.accuracy;
-            console.log(`Attempt ${attempt}: accuracy ${acc}m`);
-            if (acc <= DESIRED_ACCURACY || attempt >= MAX_RETRIES) {
-              resolve(pos);
-            } else {
-              setStatus(t("retrying"));
-              setTimeout(() => resolve(getHighAccuracyLocation(attempt + 1)), 2000);
-            }
-          },
-          (err) => reject(err),
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-      });
-    }
+function init(){
+ if(!window.isSecureContext && !location.hostname.includes("localhost")){
+  setStatus(t("mustHttps"),"error"); return;
+ }
+ if(navigator.permissions){
+  navigator.permissions.query({name:"geolocation"}).then(p=>{
+   if(p.state==="granted")getLocation(); else {setStatus(t("allow"),"error");c.style.display="block";}
+   p.onchange=()=>{if(p.state==="granted")getLocation();}
+  });
+ } else {c.style.display="block";}
+}
 
-    async function getAndSetLocation(force = false) {
-      setStatus(t("getting"));
-      controlsEl.style.display = "none";
-
-      if (!navigator.geolocation) {
-        setStatus(t("noGeo"), "error");
-        return;
-      }
-
-      try {
-        const pos = await getHighAccuracyLocation();
-        const lat = pos.coords.latitude.toFixed(6);
-        const lon = pos.coords.longitude.toFixed(6);
-        const address = await getAddress(lat, lon);
-        if (address) setForm(lat, lon, address);
-        else setStatus(t("noAddress"), "error");
-      } catch (err) {
-        console.warn("❌ Location error:", err);
-        setStatus(t("enableLoc"), "error");
-        controlsEl.style.display = "block";
-      }
-    }
-
-    function init() {
-      if (!window.isSecureContext && !location.hostname.includes("localhost")) {
-        setStatus(t("mustHttps"), "error");
-        return;
-      }
-
-      if (navigator.permissions && navigator.permissions.query) {
-        navigator.permissions.query({ name: "geolocation" }).then((res) => {
-          if (res.state === "granted") getAndSetLocation();
-          else {
-            setStatus(t("allow"), "error");
-            controlsEl.style.display = "block";
-          }
-        });
-      } else controlsEl.style.display = "block";
-    }
-
-    requestBtn.addEventListener("click", () => getAndSetLocation(true));
-    retryBtn.addEventListener("click", () => getAndSetLocation(true));
-    document.addEventListener("DOMContentLoaded", () => setStatus(t("checking")) || init());
-  </script>
+req.onclick=getLocation;
+rty.onclick=getLocation;
+document.addEventListener("DOMContentLoaded",()=>setStatus(t("checking"))||init());
+</script>
 </body>
 </html>
-
-
