@@ -5,30 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>El Hekma | Sales_Out_Door</title>
 <style>
-  body{font-family:'Segoe UI',Arial,sans-serif;background:#f6f8fa;margin:0;padding:0;color:#222}
-  .container{max-width:520px;margin:40px auto;background:#fff;border-radius:14px;box-shadow:0 4px 24px #0001;padding:30px 22px 18px;text-align:center}
-  h3{margin-top:0;font-size:1.25rem;color:#2267b7;font-weight:600}
-  #status{margin:14px auto 18px;padding:12px 18px;background:#fff3cd;color:#856404;border-radius:7px;font-size:1rem;min-height:54px;transition:.2s}
-  #status.error{background:#fdeaea;color:#c91e2c}
-  #status.success{background:#e8f5e9;color:#207d32}
-  button{padding:9px 14px;border-radius:8px;border:0;background:#2267b7;color:#fff;font-size:1rem;cursor:pointer;margin:4px}
-  button:hover{background:#195497}
-  iframe{width:100%;height:600px;border:0;border-radius:8px;background:#f2f3f5;display:none}
-  @media(max-width:650px){.container{padding:12px 8px}iframe{height:440px}}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#f6f8fa;margin:0;padding:0;color:#222}
+    .container{max-width:520px;margin:40px auto;background:#fff;border-radius:14px;box-shadow:0 4px 24px #0001;padding:30px 22px 18px;text-align:center}
+    h3{margin-top:0;font-size:1.25rem;color:#2267b7;font-weight:600}
+    #status{margin:14px auto 18px;padding:12px 18px;background:#fff3cd;color:#856404;border-radius:7px;font-size:1rem;min-height:54px;transition:.2s}
+    #status.error{background:#fdeaea;color:#c91e2c}
+    #status.success{background:#e8f5e9;color:#207d32}
+    button{padding:9px 14px;border-radius:8px;border:0;background:#2267b7;color:#fff;font-size:1rem;cursor:pointer;margin:4px}
+    button:hover{background:#195497}
+    iframe{width:100%;height:600px;border:0;border-radius:8px;background:#f2f3f5;display:none}
+    @media(max-width:650px){.container{padding:12px 8px}iframe{height:440px}}
 </style>
 </head>
 <body>
 <div class="container">
-  <h3>Your location will be auto-filled in the form</h3>
-  <div id="status">Checking location permissions…</div>
-  <div id="controls" style="display:none">
-    <button id="requestBtn">Allow Location</button>
-    <button id="retryBtn" style="display:none;">Retry</button>
-  </div>
-  <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
-  <audio id="successSound" preload="auto">
-    <source src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3" type="audio/mpeg" />
-  </audio>
+    <h3>Your location will be auto-filled in the form</h3>
+    <div id="status">Checking location permissions…</div>
+    <div id="controls" style="display:none">
+        <button id="requestBtn">Allow Location</button>
+        <button id="retryBtn" style="display:none;">Retry</button>
+    </div>
+    <iframe id="myForm" allow="geolocation" title="Google Form">Loading…</iframe>
+    <audio id="successSound" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3" type="audio/mpeg" />
+    </audio>
 </div>
 
 <script>
@@ -61,8 +61,8 @@ function saveCache(lat,lon,addr){
 }
 function loadCache(){
  try{
-  const c=JSON.parse(localStorage.getItem("eh_cache"));
-  if(c && Date.now()-c.ts<CACHE_DURATION)return c;
+    const c=JSON.parse(localStorage.getItem("eh_cache"));
+    if(c && Date.now()-c.ts<CACHE_DURATION)return c;
  }catch(e){}
  return null;
 }
@@ -73,11 +73,11 @@ async function fastAddress(lat,lon){
  const nomUrl=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=${lang}&email=${CONTACT_EMAIL}`;
  const bdcUrl=`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=${lang}`;
  try{
-  const race=await Promise.any([
-    fetch(bdcUrl).then(r=>r.json()).then(d=>clean(`${d.locality||d.city||""}, ${d.principalSubdivision||""}, ${d.countryName||""}`)),
-    fetch(nomUrl,{headers:{"User-Agent":"ElHekma/fast"}}).then(r=>r.json()).then(d=>clean(d.display_name))
-  ]);
-  return race;
+    const race=await Promise.any([
+        fetch(bdcUrl).then(r=>r.json()).then(d=>clean(`${d.locality||d.city||""}, ${d.principalSubdivision||""}, ${d.countryName||""}`)),
+        fetch(nomUrl,{headers:{"User-Agent":"ElHekma/fast"}}).then(r=>r.json()).then(d=>clean(d.display_name))
+    ]);
+    return race;
  }catch(e){return "";}
 }
 
@@ -97,24 +97,24 @@ async function getLocation(){
  if(!navigator.geolocation){setStatus(t("noGeo"),"error");return;}
  const opts={enableHighAccuracy:false,timeout:5000,maximumAge:10000};
  navigator.geolocation.getCurrentPosition(async pos=>{
-  const lat=pos.coords.latitude.toFixed(6),lon=pos.coords.longitude.toFixed(6);
-  const addr=await fastAddress(lat,lon);
-  setForm(lat,lon,addr||`Lat:${lat}, Lon:${lon}`);
+    const lat=pos.coords.latitude.toFixed(6),lon=pos.coords.longitude.toFixed(6);
+    const addr=await fastAddress(lat,lon);
+    setForm(lat,lon,addr||`Lat:${lat}, Lon:${lon}`);
  },err=>{
-  console.warn("Location error",err);
-  setStatus(t("allow"),"error"); c.style.display="block";
+    console.warn("Location error",err);
+    setStatus(t("allow"),"error"); c.style.display="block";
  },opts);
 }
 
 function init(){
  if(!window.isSecureContext && !location.hostname.includes("localhost")){
-  setStatus(t("mustHttps"),"error"); return;
+    setStatus(t("mustHttps"),"error"); return;
  }
  if(navigator.permissions){
-  navigator.permissions.query({name:"geolocation"}).then(p=>{
-   if(p.state==="granted")getLocation(); else {setStatus(t("allow"),"error");c.style.display="block";}
-   p.onchange=()=>{if(p.state==="granted")getLocation();}
-  });
+    navigator.permissions.query({name:"geolocation"}).then(p=>{
+     if(p.state==="granted")getLocation(); else {setStatus(t("allow"),"error");c.style.display="block";}
+     p.onchange=()=>{if(p.state==="granted")getLocation();}
+    });
  } else {c.style.display="block";}
 }
 
